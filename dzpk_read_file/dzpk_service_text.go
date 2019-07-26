@@ -1,7 +1,9 @@
 package dzpk_read_file
 
 import (
+	"fmt"
 	"testing"
+	"time"
 )
 
 func TestGetMaxHands(t *testing.T) {
@@ -41,4 +43,8 @@ func TestMoveAndAdd(t *testing.T) {
 	if tempValue := leftMoveAndAdd(4, 3); tempValue != 268468228 {
 		t.Errorf("Value 错误，应该为\n %64b，结果为\n %64b\n", 268468228, tempValue)
 	}
+}
+
+func TestDome(t *testing.T) {
+	fmt.Print(time.Now().Unix())
 }
