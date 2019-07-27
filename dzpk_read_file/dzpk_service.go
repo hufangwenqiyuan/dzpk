@@ -1,5 +1,6 @@
 package dzpk_read_file
 
+
 type Hand struct {
 	HandStr  string    // 记录原始手牌字符串
 	GhostNum uint64    // 鬼牌数量

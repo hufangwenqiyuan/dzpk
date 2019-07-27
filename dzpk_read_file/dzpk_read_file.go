@@ -1,4 +1,4 @@
-package dzpk_service
+package enumeration
 
 import (
 	"fmt"

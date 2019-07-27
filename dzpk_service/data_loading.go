@@ -1,4 +1,4 @@
-package dzpk_read_file
+package dzpk_service
 
 import (
 	"dzpk/model"

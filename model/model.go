@@ -11,8 +11,21 @@ type Matches struct {
 	Matches []*Match `json:"matches"`
 }
 
-//解析扑克牌
-type Analysis struct {
-	//牌的花色
-	Desgin string
+//记录下需要的信息
+type Record struct {
+	//原始手牌先保存下来
+	Original string
+	//记录花色
+	OriginalColor [5]string
+	//记录下牌面
+	OriginalFace [5]uint
+}
+
+//組成的牌型
+type Hand struct {
+	OriginalColor string
+	OriginalFace  int
+}
+
+type MaxHandPark struct {
 }

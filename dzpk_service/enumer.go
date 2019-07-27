@@ -1,4 +1,4 @@
-package enumeration
+package dzpk_service
 
 //给牌进行分类，从大到小赋值
 const (
@@ -25,7 +25,7 @@ const (
 )
 
 //创建一个map key为输入的值  value为对应的大小
-var Grade = map[string]uint{
+var Grade = map[string]int{
 	"A":  13,
 	"2":  1,
 	"3":  2,
@@ -39,4 +39,14 @@ var Grade = map[string]uint{
 	"J":  10,
 	"Q":  11,
 	"K":  12,
+}
+
+//记录下需要的信息
+type Record struct {
+	//原始手牌先保存下来
+	original string
+	//记录花色
+	originalColor [5]string
+	//记录下牌面
+	originalFace [5]uint
 }
