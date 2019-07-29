@@ -35,3 +35,18 @@ func (*readFile) ReadFile(filePath string) (Matches *model.Matches, err error) {
 
 	return Matches, nil
 }
+
+//根据提供的的地址加载json数据
+func (*readFile) WhirteFile(filePath string, Matches *model.Matches) (err error) {
+	file, err := json.Marshal(&Matches)
+	if err != nil {
+		fmt.Println("log:filePath is error" + err.Error())
+		return errors.New(err.Error())
+	}
+	erro := ioutil.WriteFile(filePath, file, 0777)
+	if erro != nil {
+		fmt.Println("log:filePath is error" + erro.Error())
+		return errors.New(erro.Error())
+	}
+	return nil
+}
