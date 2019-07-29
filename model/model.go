@@ -27,5 +27,3 @@ type Hand struct {
 	OriginalFace  int
 }
 
-type MaxHandPark struct {
-}

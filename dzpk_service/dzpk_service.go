@@ -3,11 +3,15 @@ package dzpk_service
 import (
 	"dzpk/model"
 	"fmt"
-	"giutils/logger"
+	"net/http/pprof"
 	"sort"
 )
 
 type pkpar struct {
+	//牌的等级
+	parkGrade int
+	//
+	handPark []int
 }
 
 func GetPkpar() *pkpar {
@@ -15,7 +19,6 @@ func GetPkpar() *pkpar {
 }
 
 type packOfCards []model.Hand
-type maxPack model.MaxHandPark
 
 //查看sort源码发现重写下面三个方法
 func (p packOfCards) Len() int           { return len(p) }
@@ -27,7 +30,6 @@ func (*pkpar) BeganToPlay(filePath string) {
 	file, err := GetReadFileStruct().ReadFile(filePath)
 	if err != nil {
 		fmt.Println("ReadFaile is err or filePath is err" + err.Error())
-		logger.Info("ReadFaile is err or filePath is err" + err.Error())
 	}
 
 	for index, value := range file.Matches {
@@ -39,38 +41,14 @@ func (*pkpar) BeganToPlay(filePath string) {
 
 //比较两幅牌
 func compare(playerA, PlayerB string) (err error) {
-	//由于"alice":"AsKhQcJsTc","bob":"As5s6s8sTs"牌是这种格式,需要先解析出来 并且排好序 解析为对象的数组
-	strA := analysisString(playerA)
-	strB := analysisString(PlayerB)
+	strA := analysisString(playerA).JudgeCardType()
+	strB := analysisString(PlayerB).JudgeCardType()
 
-	//比较比较大的牌型
-	go JudgeCardType(&strA)
-
-	go JudgeCardType(&strB)
 	return nil
 }
 
 //解析手牌
 func analysisString(player string) (events packOfCards) {
-	//var playerFace uint
-	//var brandSubscript string
-	//orginal := model.Record{Original:player}
-	////有两种可能，5张牌和7张牌
-	//if len(player) == 10 {
-	//	//先判断牌属于哪个等级
-	//	for i := 0;i < len(player);i++{
-	//		if i%2 == 0 {
-	//			playerFace = Grade[string(player[i])]
-	//			//记录下牌面
-	//			orginal.OriginalFace[i] = playerFace
-	//			continue
-	//		}
-	//		brandSubscript = string(player[i])
-	//		orginal.OriginalColor[i] = brandSubscript
-	//	}
-	//}
-	////下面是七张牌
-	//return &orginal
 	var playerFace int
 	var brandSubscript string
 	for i := 0; i < len(player); i = i + 2 {
@@ -86,34 +64,94 @@ func analysisString(player string) (events packOfCards) {
 
 	return events
 }
+//获取手牌的牌型和大小
+func (p packOfCards) JudgeCardType() pkpar {
+	pkpar := pkpar{}
+	pkpar.threeZoneS(p)
+	return pkpar
+}
 
-func JudgeCardType(site *packOfCards) {
-
-	//判斷是否是皇家从花顺
-	if maxPack.isroyalflush(site) {
-
-	} else if maxPack.sequence(site) { ////同花顺
-
-	} else if maxPack.quartic(site) { ////四条
-
-	} else if maxPack.threeZoneS(site) { ////三带二
-
-	} else if maxPack.sameeflower(site) { ////同花
-
-	} else if maxPack.straight(site) { //顺子
-
-	} else if maxPack.three(site) { //三条
-
-	} else if maxPack.twopairs(site) { //两对
-
-	} else if maxPack.twopairs(site) { //一对
-
-	} else if maxPack.sola(site) { //单张大牌
-
+//真正获取牌型和牌数据
+func (p *pkpar) threeZoneS(site packOfCards) (result bool) {
+	isSurpllus := 0                                                             //状态标记，是否是顺子
+	if (site[len(site)-1].OriginalFace - site[0].OriginalFace) == len(site)-1 { //顺子
+		isSurpllus++
+		if site[len(site)-1].OriginalFace == 13 { //如果是顺子，并且最后一张牌是13（A）则表示是皇家
+			if p.sameeflower(site) { //判断其是否是同花顺 返回true 表示是皇家同花顺
+				p.parkGrade = ROYALFLUSH //如果是皇家同花顺则不用比较
+				return true
+			}
+		}
+	} else {
+		if p.sameeflower(site) { //这里判断出 是同花顺不是皇家同花顺
+			p.parkGrade = SEQUENCE //如果是顺则只需要比较相同坐标下的值
+			return true
+		}
+	}
+	docker := site[0].OriginalFace //先初始化第一张牌的牌面
+	record := 0                    //记录下相同牌出现的次数
+	endRecordI := 0                //在出现三张连续牌的时候，记录下牌的下标
+	pairEtc := 0                   //记录下一对一对出现的次数
+	threeZone := 0                 //记录下三张牌出现的次数
+	for i := 1; i < len(site); i++ {
+		if docker == site[i].OriginalFace {
+			record++
+			if record == 2 {
+				endRecordI = i
+				threeZone++
+			}
+			if record == 1 {
+				pairEtc++
+			}
+		} else {
+			docker = site[i].OriginalFace //如果两张牌不相等，则用后面的牌放入容器中，用后面的牌继续做比价
+			record = 0
+		}
+	}
+	spilc := make([]model.Hand, 2) //创建一个容量为2的切片
+	if threeZone == 1 {
+		startWhere := endRecordI - 2
+		spilc = append(site[:startWhere], site[endRecordI+1:]...) //采用数组切片的方式获取剩下的值
+	}
+	if record == 3 { //判断四条出现的情况  下面的判断顺序是这个程序的关键
+		p.parkGrade = QUARTIC
+		return true
+	} else if threeZone == 1 && spilc[0] == spilc[1] { //满堂彩
+		p.parkGrade = THREE_ZONES
+		return true
+	} else if p.sameeflower(site) { //同花
+		p.parkGrade = SEQUENCE
+		return true
+	} else if isSurpllus == 1 { //顺子
+		p.parkGrade = STRAIGHT
+		return true
+	} else if threeZone == 1 { //三带二
+		p.parkGrade = THREE
+		return true
+	} else if pairEtc == 2 { //两对
+		p.parkGrade = TWOPAIRS
+		return true
+	} else if pairEtc == 1 { //一对
+		p.parkGrade = TWAIN
+		return true
+	} else { //如果上面都不符合则表示是散牌
+		p.parkGrade = SOLA
+		return true
 	}
 }
 
-func (judge *maxPack) isroyalflush(site *packOfCards) (result bool) {
-
-	return true
+//判断是否是同花
+func (p *pkpar) sameeflower(site packOfCards) (result bool) {
+	docker := site[0].OriginalColor  //获取第一张牌的花色
+	recode := 0                      //记录出现的次数
+	for i := 1; i < len(site); i++ { //遍历剩下的花色
+		if docker == site[i].OriginalColor {
+			recode++ //因为同花是所有的牌是一种花色，如果出现相等则加一
+		}
+	}
+	if recode == len(site)-1 { //如果全部都是同一种花色则返回true
+		p.handPark[0] = site[0].OriginalFace //这里记录下那个值
+		return true
+	}
+	return false
 }
