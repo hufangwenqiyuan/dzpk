@@ -4,6 +4,7 @@ import (
 	"dzpk/model"
 	"fmt"
 	"sort"
+	"time"
 )
 
 type pkpar struct {
@@ -26,12 +27,13 @@ func (p packOfCards) Less(i, j int) bool { return p[i].OriginalFace < p[j].Origi
 
 //开始打牌喽
 func (*pkpar) BeganToPlay(filePath string) {
+
 	Path := filePath + "/match.json"
 	file, err := GetReadFileStruct().ReadFile(Path)
 	if err != nil {
 		fmt.Println("ReadFaile is err or filePath is err" + err.Error())
 	}
-
+	start := time.Now()
 	for _, value := range file.Matches {
 		strA := analysisString(value.PlayerA).JudgeCardType()
 		strB := analysisString(value.PlayerB).JudgeCardType()
@@ -66,6 +68,7 @@ func (*pkpar) BeganToPlay(filePath string) {
 			value.Result = 2
 		}
 	}
+	fmt.Println(time.Since(start))
 	filePath = filePath + "/result.json"
 	//把file写入result文件中
 	if fileErr := GetReadFileStruct().WhirteFile(filePath, file); fileErr != nil {
@@ -86,8 +89,7 @@ func analysisString(player string) (events packOfCards) {
 		}
 		events = append(events, pack)
 	}
-	sort.Sort(events)
-
+	sort.Sort(events) //对牌进行排序
 	return events
 }
 
@@ -98,11 +100,17 @@ func (p packOfCards) JudgeCardType() pkpar {
 	return pkpar
 }
 
-//真正获取牌型和牌数据
+//真正获取牌型和牌数据  尽可能减少循环
 func (p *pkpar) getInfomation(site packOfCards) (result bool) {
-	isSurpllus := 0                                                             //状态标记，是否是顺子
+	var record, endRecordI, pairEtc, threeZone, recoOne, isSurpllus int //状态标记，是否是顺子
+	//record       //记录下相同牌出现的次数
+	//endRecordI            //在出现三张连续牌的时候，记录下牌的下标
+	//pairEtc                    //记录下一对一对出现的次数
+	//threeZone               //记录下三张牌出现的次数
+	//isSurpllus int 	//状态标记，是否是顺子
+	//recoOne
 	if (site[len(site)-1].OriginalFace - site[0].OriginalFace) == len(site)-1 { //顺子
-		isSurpllus++
+		isSurpllus = 1
 		if site[len(site)-1].OriginalFace == 13 { //如果是顺子，并且最后一张牌是13（A）则表示是皇家
 			if p.sameeflower(site) { //判断其是否是同花顺 返回true 表示是皇家同花顺
 				p.parkGrade = ROYALFLUSH //如果是皇家同花顺则不用比较
@@ -116,53 +124,48 @@ func (p *pkpar) getInfomation(site packOfCards) (result bool) {
 			}
 		}
 	}
+
 	docker := site[0].OriginalFace //先初始化第一张牌的牌面
-	record := 0                    //记录下相同牌出现的次数
-	endRecordI := 0                //在出现三张连续牌的时候，记录下牌的下标
-	pairEtc := 0                   //记录下一对一对出现的次数
-	threeZone := 0                 //记录下三张牌出现的次数
-	recoOne := 0
 	for i := 1; i < len(site); i++ {
 		if docker == site[i].OriginalFace {
+			endRecordI = i
 			record++
 			if record == 3 {
-				endRecordI = i
 				threeZone--
-				isSurpllus--
-			}
-			if record == 2 {
-				endRecordI = i
+			} else if record == 2 {
 				threeZone++
-				isSurpllus--
-			}
-			if record == 1 {
-				endRecordI = i
+			} else if record == 1 {
 				pairEtc++
-				isSurpllus--
 			}
-
 			if pairEtc == 1 {
 				recoOne = i
+				isSurpllus = 0
 			}
 		} else {
 			docker = site[i].OriginalFace //如果两张牌不相等，则用后面的牌放入容器中，用后面的牌继续做比价
 			record = 0
 		}
 	}
-	spilc := make([]model.Hand, 2) //创建一个容量为2的切片
-	if threeZone == 1 {
-		startWhere := endRecordI - 2
-		spilc = append(site[:startWhere], site[endRecordI+1:]...) //采用数组切片的方式获取剩下的值
-	}
-
 	if record == 3 { //判断四条出现的情况  下面的判断顺序是这个程序的关键
 		p.handPark = append(site[:endRecordI-3], site[endRecordI:]...)
 		p.parkGrade = QUARTIC
 		return true
-	} else if threeZone == 1 && spilc[0].OriginalFace == spilc[1].OriginalFace { //满堂彩 三带二
-		p.handPark = append(append(p.handPark, spilc[0]), site[endRecordI])
-		p.parkGrade = THREE_ZONES
-		return true
+	} else if threeZone == 1 { //满堂彩 三带二
+		spilc := make([]model.Hand, 2) //创建一个容量为2的切片
+		if threeZone == 1 {
+			startWhere := endRecordI - 2
+			spilc = append(site[:startWhere], site[endRecordI+1:]...) //采用数组切片的方式获取剩下的值
+		}
+		if spilc[0].OriginalFace == spilc[1].OriginalFace {
+			p.handPark = append(append(p.handPark, spilc[0]), site[endRecordI])
+			p.parkGrade = THREE_ZONES
+			return true
+		} else {
+			p.handPark = append(append(p.handPark, spilc...), site[endRecordI])
+			p.parkGrade = THREE
+			return true
+		}
+
 	} else if p.sameeflower(site) { //同花
 		p.handPark = site //同花的情况则需要把所有的值加上去
 		p.parkGrade = SAMEFLOWER
@@ -171,13 +174,9 @@ func (p *pkpar) getInfomation(site packOfCards) (result bool) {
 		p.handPark = append(p.handPark, site[0])
 		p.parkGrade = STRAIGHT
 		return true
-	} else if threeZone == 1 { //三带二
-		p.handPark = append(append(p.handPark, spilc...), site[endRecordI])
-		p.parkGrade = THREE
-		return true
 	} else if pairEtc == 2 { //两对
-		spilc = append(site[:endRecordI], site[endRecordI+1:]...)
-		p.handPark = append(spilc[:recoOne], spilc[recoOne+1:]...)
+		spilct := append(site[:endRecordI], site[endRecordI+1:]...)
+		p.handPark = append(spilct[:recoOne], spilct[recoOne+1:]...)
 		p.parkGrade = TWOPAIRS
 		return true
 	} else if pairEtc == 1 { //一对
@@ -204,4 +203,45 @@ func (p *pkpar) sameeflower(site packOfCards) (result bool) {
 		return true
 	}
 	return false
+}
+
+func imputVoltage(pkpA, pkpB string) {
+	//fmt.Println("请输入你要参加者A的牌号：")
+	//var pkpA string
+	//var pkpB string
+	//fmt.Scan("%s",&pkpA)
+	//fmt.Println("请输入你要参加者B的牌号：")
+	//fmt.Scan("%s",&pkpB)
+	strA := analysisString(pkpA).JudgeCardType()
+	strB := analysisString(pkpB).JudgeCardType()
+
+	if strA.parkGrade > strB.parkGrade {
+		fmt.Println("A同学赢了：恭喜A同学")
+		//A赢了
+	} else if strA.parkGrade == strB.parkGrade {
+		//同一种牌 //如果是同一种牌就递归比较
+		for i := len(strA.handPark) - 1; ; i-- { //获取改数组的最后的一个开始
+			if strA.handPark[i].OriginalFace > strB.handPark[i].OriginalFace {
+				fmt.Println("A同学赢了：恭喜A同学")
+				break
+				//A赢
+			} else if strA.handPark[i].OriginalFace == strB.handPark[i].OriginalFace {
+				if i == 0 {
+					//平局
+					fmt.Println("平局：厉害打了平局")
+					break
+				}
+				continue //继续
+
+			} else {
+				//B赢
+				fmt.Println("B同学赢了：恭喜B同学")
+				break
+			}
+
+		}
+	} else {
+		//B贏了
+		fmt.Println("B同学赢了：恭喜B同学")
+	}
 }

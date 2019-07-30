@@ -8,4 +8,10 @@ import (
 func Test_dzpk_test(t *testing.T) {
 	//获取时间戳
 	GetPkpar().BeganToPlay("./../match_template")
+
+}
+
+//随意输入值
+func Test_imputVoltage_test(t *testing.T) {
+	imputVoltage("AsKsQsJsTs", "QsQhQdQcJh")
 }
