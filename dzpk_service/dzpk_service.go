@@ -41,20 +41,23 @@ func (*pkpar) BeganToPlay(filePath string) {
 			//A赢了
 		} else if strA.parkGrade == strB.parkGrade {
 			//同一种牌 //如果是同一种牌就递归比较
-			for i := len(strA.handPark) - 1; i < len(strA.handPark); i++ { //获取改数组的最后的一个开始
+			for i := len(strA.handPark) - 1; ; i-- { //获取改数组的最后的一个开始
 				if strA.handPark[i].OriginalFace > strB.handPark[i].OriginalFace {
 					value.Result = 1
+					break
 					//A赢
 				} else if strA.handPark[i].OriginalFace == strB.handPark[i].OriginalFace {
 					if i == 0 {
 						//平局
 						value.Result = 0
+						break
 					}
 					continue //继续
 
 				} else {
 					//B赢
 					value.Result = 2
+					break
 				}
 
 			}
@@ -89,12 +92,12 @@ func analysisString(player string) (events packOfCards) {
 //获取手牌的牌型和大小
 func (p packOfCards) JudgeCardType() pkpar {
 	pkpar := pkpar{}
-	pkpar.threeZoneS(p)
+	pkpar.getInfomation(p)
 	return pkpar
 }
 
 //真正获取牌型和牌数据
-func (p *pkpar) threeZoneS(site packOfCards) (result bool) {
+func (p *pkpar) getInfomation(site packOfCards) (result bool) {
 	isSurpllus := 0                                                             //状态标记，是否是顺子
 	if (site[len(site)-1].OriginalFace - site[0].OriginalFace) == len(site)-1 { //顺子
 		isSurpllus++
@@ -122,14 +125,18 @@ func (p *pkpar) threeZoneS(site packOfCards) (result bool) {
 			record++
 			if record == 3 {
 				endRecordI = i
+				threeZone--
+				isSurpllus--
 			}
 			if record == 2 {
 				endRecordI = i
 				threeZone++
+				isSurpllus--
 			}
 			if record == 1 {
 				endRecordI = i
 				pairEtc++
+				isSurpllus--
 			}
 
 			if pairEtc == 1 {
@@ -147,22 +154,19 @@ func (p *pkpar) threeZoneS(site packOfCards) (result bool) {
 	}
 
 	if record == 3 { //判断四条出现的情况  下面的判断顺序是这个程序的关键
-		slice := make([]model.Hand, 2)
-		slice = append(site[:endRecordI-3], site[endRecordI+1:]...)
-		s := append(slice, site[endRecordI])
-		p.handPark = s
+		p.handPark = append(site[:endRecordI-3], site[endRecordI:]...)
 		p.parkGrade = QUARTIC
 		return true
-	} else if threeZone == 1 && spilc[0] == spilc[1] { //满堂彩 三带二
+	} else if threeZone == 1 && spilc[0].OriginalFace == spilc[1].OriginalFace { //满堂彩 三带二
 		p.handPark = append(append(p.handPark, spilc[0]), site[endRecordI])
 		p.parkGrade = THREE_ZONES
 		return true
 	} else if p.sameeflower(site) { //同花
 		p.handPark = site //同花的情况则需要把所有的值加上去
-		p.parkGrade = SEQUENCE
+		p.parkGrade = SAMEFLOWER
 		return true
 	} else if isSurpllus == 1 { //顺子
-		p.handPark[0] = site[0]
+		p.handPark = append(p.handPark, site[0])
 		p.parkGrade = STRAIGHT
 		return true
 	} else if threeZone == 1 { //三带二
@@ -195,7 +199,6 @@ func (p *pkpar) sameeflower(site packOfCards) (result bool) {
 		}
 	}
 	if recode == len(site)-1 { //如果全部都是同一种花色则返回true
-		//p.handPark[0] = site[0] //这里记录下那个值
 		return true
 	}
 	return false
