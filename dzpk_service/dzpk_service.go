@@ -68,7 +68,9 @@ func (*pkpar) BeganToPlay(filePath string) {
 	}
 	filePath = filePath + "/result.json"
 	//把file写入result文件中
-	GetReadFileStruct().WhirteFile(filePath, file)
+	if fileErr := GetReadFileStruct().WhirteFile(filePath, file); fileErr != nil {
+		fmt.Println(fileErr.Error())
+	}
 }
 
 //解析手牌
